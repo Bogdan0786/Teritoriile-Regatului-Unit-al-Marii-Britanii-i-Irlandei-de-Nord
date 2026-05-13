@@ -1,0 +1,321 @@
+<!DOCTYPE html>
+<html lang="ro">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Teritoriile Regatului Unit</title>
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,400;0,500;0,600;0,700;1,400&family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/d3/7.8.5/d3.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/topojson/3.0.2/topojson.min.js"></script>
+<style>
+:root{--ink:#1a1a20;--ink-soft:#3d3d45;--paper:#eef0f3;--paper-dark:#dde1e7;--accent:#012169;--accent-deep:#001f4d;--red:#c8102e;--gold:#b8a06c;--sea:#cfd9e4;--border:#1f2430;--cd:#012169;--bot-europe:#c8102e;--bot-atlantic:#8b1538;--bot-caribbean:#1e5a3f;--bot-pacific:#b8860b;--bot-indian:#6b4423;--bot-antarctic:#4a5a6c}
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{background:var(--paper);color:var(--ink);font-family:'Inter',sans-serif;-webkit-font-smoothing:antialiased;overflow-x:hidden;min-height:100vh}
+body{background-image:radial-gradient(ellipse at top right,rgba(1,33,105,.06) 0%,transparent 50%),radial-gradient(ellipse at bottom left,rgba(200,16,46,.04) 0%,transparent 50%)}
+header{padding:32px 40px 24px;border-bottom:1px solid var(--border);position:relative;background:var(--paper)}
+header::before{content:'';position:absolute;top:0;left:0;right:0;height:4px;background:linear-gradient(90deg,var(--accent) 0 40%,var(--paper) 40% 45%,var(--red) 45% 55%,var(--paper) 55% 60%,var(--accent) 60% 100%)}
+.header-inner{max-width:1600px;margin:0 auto;display:flex;justify-content:space-between;align-items:flex-end;gap:32px;flex-wrap:wrap}
+.eyebrow{font-family:'JetBrains Mono',monospace;font-size:10px;letter-spacing:.2em;text-transform:uppercase;color:var(--ink-soft);margin-bottom:6px}
+h1{font-family:'Cormorant Garamond',serif;font-weight:500;font-size:clamp(28px,4vw,52px);line-height:1.05;letter-spacing:-.02em}
+h1 em{font-style:italic;color:var(--red)}
+.subtitle{font-family:'Cormorant Garamond',serif;font-style:italic;font-size:16px;color:var(--ink-soft);margin-top:10px;max-width:640px;line-height:1.4}
+.meta{font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--ink-soft);text-align:right;line-height:1.8}
+.meta .line{display:flex;gap:10px;justify-content:flex-end}
+.meta .label{color:var(--red)}
+.legal-intro{max-width:1600px;margin:0 auto;padding:24px 40px 20px;display:grid;grid-template-columns:1fr 2fr;gap:48px;align-items:start}
+.legal-intro .label-col{font-family:'Cormorant Garamond',serif;font-style:italic;font-size:18px;color:var(--ink-soft);border-left:2px solid var(--accent);padding-left:16px}
+.legal-intro p{font-family:'Cormorant Garamond',serif;font-size:16px;line-height:1.55}
+.legal-intro p+p{margin-top:12px}
+.filters{max-width:1600px;margin:0 auto;padding:16px 40px;display:flex;gap:6px;flex-wrap:wrap;align-items:center;border-top:1px dashed var(--paper-dark);border-bottom:1px dashed var(--paper-dark)}
+.filter-label{font-family:'JetBrains Mono',monospace;font-size:10px;letter-spacing:.15em;text-transform:uppercase;color:var(--ink-soft);margin-right:8px}
+.chip{font-family:'Inter',sans-serif;font-size:11px;font-weight:500;padding:6px 12px;background:transparent;border:1px solid var(--border);color:var(--ink);cursor:pointer;transition:all .2s;border-radius:2px;display:flex;align-items:center;gap:6px}
+.chip:hover,.chip.active{background:var(--ink);color:var(--paper)}
+.chip .dot{width:7px;height:7px;border-radius:50%;display:inline-block}
+.chip[data-cat="cd"] .dot{background:var(--cd)}
+.chip[data-cat="bot-europe"] .dot{background:var(--bot-europe)}
+.chip[data-cat="bot-atlantic"] .dot{background:var(--bot-atlantic)}
+.chip[data-cat="bot-caribbean"] .dot{background:var(--bot-caribbean)}
+.chip[data-cat="bot-pacific"] .dot{background:var(--bot-pacific)}
+.chip[data-cat="bot-indian"] .dot{background:var(--bot-indian)}
+.chip[data-cat="bot-antarctic"] .dot{background:var(--bot-antarctic)}
+main{max-width:1600px;margin:0 auto;padding:24px 40px 48px;display:grid;grid-template-columns:1fr 440px;gap:24px}
+.map-wrap{background:var(--sea);border:1px solid var(--border);border-radius:2px;position:relative;overflow:hidden;aspect-ratio:2/1;box-shadow:0 4px 20px rgba(0,0,0,.08)}
+#worldmap{width:100%;height:100%;display:block}
+.country{fill:#e8ecf0;stroke:#a0aab4;stroke-width:.4;cursor:default}
+.country.uk-metro{fill:var(--ink);stroke:var(--ink)}
+.country:hover{fill:var(--paper-dark)}
+.country.uk-metro:hover{fill:var(--accent-deep)}
+.graticule{fill:none;stroke:rgba(1,33,105,.07);stroke-width:.3}
+.sphere{fill:var(--sea);stroke:var(--ink-soft);stroke-width:.5}
+.marker{cursor:pointer}
+.marker .halo{fill:transparent;stroke-width:1;opacity:.5;transform-box:fill-box;transform-origin:center;animation:pulse 2.8s ease-in-out infinite}
+@keyframes pulse{0%,100%{transform:scale(1);opacity:.5}50%{transform:scale(1.8);opacity:.1}}
+.marker .core{stroke:#fff;stroke-width:1.3;transition:r .2s}
+.marker:hover .core{r:7}
+.marker.dimmed{opacity:.12;pointer-events:none}
+.marker.active .core{stroke:var(--ink);stroke-width:2}
+.marker-label{font-family:'Cormorant Garamond',serif;font-style:italic;font-size:10px;fill:var(--ink);paint-order:stroke;stroke:var(--paper);stroke-width:3;stroke-linejoin:round;pointer-events:none;opacity:0;transition:opacity .2s}
+.marker:hover .marker-label{opacity:1}
+.tooltip{position:absolute;background:var(--ink);color:var(--paper);padding:3px 8px;font-family:'JetBrains Mono',monospace;font-size:9px;pointer-events:none;opacity:0;transition:opacity .15s;z-index:10;white-space:nowrap}
+.map-legend{position:absolute;bottom:12px;left:12px;background:rgba(238,240,243,.95);border:1px solid var(--border);padding:10px 14px;font-family:'JetBrains Mono',monospace;font-size:9px;line-height:1.8;z-index:2;backdrop-filter:blur(4px)}
+.map-legend .title{font-weight:500;letter-spacing:.1em;text-transform:uppercase;margin-bottom:6px}
+.map-legend .item{display:flex;align-items:center;gap:6px;color:var(--ink-soft)}
+.map-legend .item .dot{width:7px;height:7px;border-radius:50%}
+.map-compass{position:absolute;top:12px;right:12px;font-family:'Cormorant Garamond',serif;font-style:italic;font-size:10px;color:var(--ink-soft);z-index:2;text-align:center;background:rgba(238,240,243,.85);padding:5px 8px;border:1px solid var(--paper-dark)}
+.map-loading{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-family:'Cormorant Garamond',serif;font-style:italic;font-size:16px;color:var(--ink-soft);z-index:5;background:var(--sea)}
+.map-loading.hidden{display:none}
+.panel{background:var(--paper);border:1px solid var(--border);border-radius:2px;position:sticky;top:16px;max-height:calc(100vh - 32px);overflow-y:auto;box-shadow:0 4px 20px rgba(0,0,0,.08)}
+.panel::-webkit-scrollbar{width:4px}
+.panel::-webkit-scrollbar-track{background:var(--paper-dark)}
+.panel::-webkit-scrollbar-thumb{background:var(--ink-soft)}
+.panel-placeholder{padding:40px 28px;text-align:center;color:var(--ink-soft);font-family:'Cormorant Garamond',serif;font-style:italic;font-size:16px;line-height:1.5}
+.panel-placeholder .icon{font-size:40px;color:var(--red);margin-bottom:12px;font-style:normal}
+.panel-header{padding:24px 28px 16px;border-bottom:1px solid var(--paper-dark)}
+.panel-cat{font-family:'JetBrains Mono',monospace;font-size:9px;letter-spacing:.2em;text-transform:uppercase;display:inline-flex;align-items:center;gap:5px;padding:3px 8px;border:1px solid;margin-bottom:12px}
+.panel-cat[data-cat="cd"]{color:var(--cd);border-color:var(--cd)}
+.panel-cat[data-cat="bot-europe"]{color:var(--bot-europe);border-color:var(--bot-europe)}
+.panel-cat[data-cat="bot-atlantic"]{color:var(--bot-atlantic);border-color:var(--bot-atlantic)}
+.panel-cat[data-cat="bot-caribbean"]{color:var(--bot-caribbean);border-color:var(--bot-caribbean)}
+.panel-cat[data-cat="bot-pacific"]{color:var(--bot-pacific);border-color:var(--bot-pacific)}
+.panel-cat[data-cat="bot-indian"]{color:var(--bot-indian);border-color:var(--bot-indian)}
+.panel-cat[data-cat="bot-antarctic"]{color:var(--bot-antarctic);border-color:var(--bot-antarctic)}
+.panel h2{font-family:'Cormorant Garamond',serif;font-weight:500;font-size:28px;line-height:1.1;letter-spacing:-.01em}
+.panel h2 em{display:block;font-style:italic;font-size:15px;color:var(--ink-soft);font-weight:400;margin-top:4px}
+.panel-body{padding:20px 28px 28px}
+.coords-bar{font-family:'JetBrains Mono',monospace;font-size:9px;color:var(--ink-soft);padding:6px 10px;background:var(--paper-dark);margin-bottom:18px;display:flex;justify-content:space-between;gap:12px}
+.stat-grid{display:grid;grid-template-columns:1fr 1fr;gap:1px;background:var(--paper-dark);border:1px solid var(--paper-dark);margin-bottom:18px}
+.stat{background:var(--paper);padding:12px 14px}
+.stat .k{font-family:'JetBrains Mono',monospace;font-size:8px;letter-spacing:.15em;text-transform:uppercase;color:var(--ink-soft);margin-bottom:3px}
+.stat .v{font-family:'Cormorant Garamond',serif;font-size:16px;font-weight:500}
+.panel-section{margin-bottom:16px}
+.panel-section h3{font-family:'JetBrains Mono',monospace;font-size:9px;letter-spacing:.2em;text-transform:uppercase;color:var(--red);margin-bottom:8px;padding-bottom:5px;border-bottom:1px solid var(--paper-dark)}
+.panel-section p{font-family:'Cormorant Garamond',serif;font-size:15px;line-height:1.55}
+.visa-box{background:var(--paper-dark);border-left:3px solid var(--accent);padding:14px 16px;margin-bottom:18px}
+.visa-box h3{font-family:'JetBrains Mono',monospace;font-size:9px;letter-spacing:.2em;text-transform:uppercase;color:var(--accent-deep);margin-bottom:10px;border:none;padding:0}
+.visa-row{display:grid;grid-template-columns:110px 1fr;gap:10px;padding:5px 0;border-bottom:1px dashed rgba(0,0,0,.1)}
+.visa-row:last-child{border-bottom:none}
+.visa-row .vk{font-family:'JetBrains Mono',monospace;font-size:9px;color:var(--ink-soft);text-transform:uppercase;padding-top:2px}
+.visa-row .vv{font-family:'Cormorant Garamond',serif;font-size:14px;line-height:1.4}
+.visa-row .vv strong{font-weight:600;color:var(--accent-deep)}
+.alert-box{background:#fff8e6;border-left:3px solid var(--gold);padding:12px 14px;margin-bottom:16px;font-family:'Cormorant Garamond',serif;font-size:13px;line-height:1.5;color:#5a4a1c}
+.alert-box strong{color:#3a2e0e;font-weight:600;display:block;margin-bottom:3px;font-family:'JetBrains Mono',monospace;font-size:9px;letter-spacing:.15em;text-transform:uppercase}
+.badge-row{display:flex;flex-wrap:wrap;gap:5px;margin-top:6px}
+.badge{font-family:'JetBrains Mono',monospace;font-size:9px;padding:3px 7px;background:var(--paper-dark);border-radius:2px}
+.badge.cta{background:var(--accent);color:var(--paper)}
+.badge.uk-cit{background:var(--red);color:var(--paper)}
+.panel-enter{animation:fadeIn .3s ease}
+@keyframes fadeIn{from{opacity:0;transform:translateY(5px)}to{opacity:1;transform:translateY(0)}}
+footer{max-width:1600px;margin:0 auto;padding:24px 40px 48px;border-top:1px solid var(--paper-dark);font-family:'Cormorant Garamond',serif;font-style:italic;font-size:13px;color:var(--ink-soft);line-height:1.6;display:grid;grid-template-columns:2fr 1fr;gap:40px}
+footer .refs{font-family:'JetBrains Mono',monospace;font-style:normal;font-size:9px;line-height:1.8}
+footer .refs strong{color:var(--red);display:block;margin-bottom:6px;letter-spacing:.15em;text-transform:uppercase}
+@media(max-width:1100px){main{grid-template-columns:1fr}.panel{position:relative;top:0;max-height:none}.legal-intro{grid-template-columns:1fr;gap:12px}footer{grid-template-columns:1fr}}
+@media(max-width:640px){header,main,.legal-intro,.filters,footer{padding-left:16px;padding-right:16px}.header-inner{flex-direction:column;align-items:flex-start}.meta{text-align:left}.meta .line{justify-content:flex-start}}
+</style>
+</head>
+<body>
+<header>
+  <div class="header-inner">
+    <div class="brand">
+      <div class="eyebrow">United Kingdom · Crown Dependencies &amp; Overseas Territories · 2026</div>
+      <h1>Teritoriile <em>Regatului Unit</em><br>al Marii Britanii și Irlandei de Nord</h1>
+      <p class="subtitle">Cele 3 Dependențe ale Coroanei și 14 Teritorii de peste Mări Britanice poziționate la coordonatele lor geografice reale — cu statut juridic, regim de vize și apartenența la UE post-Brexit.</p>
+    </div>
+          <div class="meta">
+      <div class="line"><span class="label">Proiecție</span><span>Equirectangular (EPSG:4326)</span></div>
+      <div class="line"><span class="label">Date</span><span>Natural Earth 1:110M</span></div>
+      <div class="line"><span class="label">Rezoluție</span><span>173 țări · 17 teritorii UK</span></div>
+      <div class="line"><span class="label">Supraf. totală</span><span>≈ 1 727 570 km²</span></div>
+      <div class="line" style="margin-top:6px;padding-top:6px;border-top:1px dashed var(--paper-dark)"><span class="label">Creat de</span><span>Popa Bogdan</span></div>
+    </div>
+  </div>
+</header>
+
+<section class="legal-intro">
+  <div class="label-col">Distincția constituțională fundamentală</div>
+  <div>
+    <p><strong>Niciunul dintre teritoriile reprezentate nu face parte din Regatul Unit.</strong> Regatul Unit al Marii Britanii și Irlandei de Nord este alcătuit exclusiv din patru națiuni constituente: Anglia, Scoția, Țara Galilor și Irlanda de Nord. Celelalte entități sub suveranitatea britanică împart cu Regatul Unit doar persoana monarhului — Charles al III-lea — prin doctrina <em>"one, undivided realm"</em>.</p>
+    <p>Există două categorii juridice distincte: <strong>Dependențele Coroanei</strong> (Jersey, Guernsey, Isle of Man) — posesiuni feudale istorice care preced formarea statului britanic modern — și <strong>Teritoriile de peste Mări Britanice</strong> — rămășițele Imperiului Britanic rămase sub suveranitate britanică prin <em>British Overseas Territories Act 2002</em>.</p>
+  </div>
+</section>
+
+<section class="filters">
+  <span class="filter-label">Filtrează după regiune</span>
+  <button class="chip active" data-filter="all">Toate</button>
+  <button class="chip" data-filter="cd" data-cat="cd"><span class="dot"></span>Crown Dependencies</button>
+  <button class="chip" data-filter="bot-europe" data-cat="bot-europe"><span class="dot"></span>BOT Europa</button>
+  <button class="chip" data-filter="bot-atlantic" data-cat="bot-atlantic"><span class="dot"></span>BOT Atlantic</button>
+  <button class="chip" data-filter="bot-caribbean" data-cat="bot-caribbean"><span class="dot"></span>BOT Caraibe</button>
+  <button class="chip" data-filter="bot-pacific" data-cat="bot-pacific"><span class="dot"></span>BOT Pacific</button>
+  <button class="chip" data-filter="bot-indian" data-cat="bot-indian"><span class="dot"></span>BOT Ocean Indian</button>
+  <button class="chip" data-filter="bot-antarctic" data-cat="bot-antarctic"><span class="dot"></span>BOT Antarctica</button>
+</section>
+
+<main>
+  <div class="map-wrap">
+    <div class="map-loading" id="loading">Se încarcă harta…</div>
+    <svg id="worldmap"></svg>
+    <div class="tooltip" id="tooltip"></div>
+    <div class="map-legend">
+      <div class="title">Categorii</div>
+      <div class="item"><span class="dot" style="background:var(--cd)"></span>Crown Dependencies</div>
+      <div class="item"><span class="dot" style="background:var(--bot-europe)"></span>BOT Europa</div>
+      <div class="item"><span class="dot" style="background:var(--bot-atlantic)"></span>BOT Atlantic</div>
+      <div class="item"><span class="dot" style="background:var(--bot-caribbean)"></span>BOT Caraibe</div>
+      <div class="item"><span class="dot" style="background:var(--bot-pacific)"></span>BOT Pacific</div>
+      <div class="item"><span class="dot" style="background:var(--bot-indian)"></span>BOT Ocean Indian</div>
+      <div class="item"><span class="dot" style="background:var(--bot-antarctic)"></span>BOT Antarctica</div>
+    </div>
+    <div class="map-compass">↑<br>N</div>
+  </div>
+  <aside class="panel" id="panel">
+    <div class="panel-placeholder">
+      <div class="icon">⚜</div>
+      <div>Selectează un marcaj de pe hartă<br>pentru a consulta fișa juridică<br>a teritoriului britanic.</div>
+    </div>
+  </aside>
+</main>
+
+<footer>
+  <div>Această hartă folosește date cartografice reale Natural Earth (scară 1:110 milioane, dataset public), cu proiecție <em>Equirectangular (Plate Carrée, EPSG:4326)</em>. Fiecare teritoriu este poziționat la coordonatele sale reale. Brexit (2020) a desprins BOT-urile de statutul PTOM UE; tratatul UK-Mauritius privind Chagos (mai 2025) a fost blocat în aprilie 2026 după opoziția administrației Trump.</div>
+  <div class="refs">
+    <strong>Surse normative</strong>
+    British Overseas Territories Act 2002<br>
+    British Nationality Act 1981<br>
+    Isle of Man Act 1958<br>
+    Common Travel Area (Ireland Act 1949)<br>
+    Cyprus Treaty of Establishment 1960<br>
+    Antarctic Treaty System 1959<br>
+    Agreement UK-Mauritius 22 May 2025<br><br>
+    <strong>Date cartografice</strong>
+    Natural Earth 1:110M · Domeniu public<br>
+    Proiecție: Equirectangular WGS84
+  </div>
+</footer>
+
+<script>
+const teritorii=[{id:'jersey',nume:'Bailiwick of Jersey',numeEn:'Bailliage de Jersey',categorie:'cd',categorieLabel:'Crown Dependency',lat:49.2144,lon:-2.1312,capitala:'Saint Helier',populatie:'≈ 104 000',suprafata:'119,6 km²',ocean:'Marea Mânecii — Insulele Canalului',descriere:'Cea mai mare dintre Insulele Canalului, cu dependințele Les Minquiers și Les Écréhous. Provine din Ducatul Normandiei dinaintea anului 1066. A rămas cu Coroana engleză când Normandia continentală a fost pierdută în 1204.',temei:'Doctrina "Crown in right of Jersey". Constituție nescrisă, fondată pe Royal Charters istorice. Legislatura: States of Jersey. Nu este parte a Regatului Unit.',ue:'Protocol 3 la Tratatul de aderare UK (1973-2020). Post-Brexit: fără relație UE.',schengen:'În afara Schengen — parte a Common Travel Area cu UK și Irlanda',moneda:'Liră Jersey (JEP) — paritate 1:1 cu GBP',viza:{temei:'Immigration Rules UK prin Orders in Council; Control of Housing and Work (Jersey) Law 2012',regim:'Aplică regimul UK de vize, cu competențe proprii prin Common Travel Area',particular:'Cetățenii UE au nevoie de ETA din 2024; lucrătorii non-CTA necesită permise specifice Jersey',observatie:'Common Travel Area permite circulație liberă cu UK, Irlanda, Guernsey și IoM fără controale sistematice'},particularitati:'Limba de drept istoric: franceza normandă (Jèrriais). Centru financiar offshore major.',badges:['Crown Dependency','CTA','Non-EU']},{id:'guernsey',nume:'Bailiwick of Guernsey',numeEn:'Bailliage de Guernesey',categorie:'cd',categorieLabel:'Crown Dependency',lat:49.4657,lon:-2.5853,capitala:'Saint Peter Port',populatie:'≈ 67 000',suprafata:'78 km²',ocean:'Marea Mânecii',descriere:'Include Guernsey, Alderney, Sark (cu Brecqhou), Herm, Jethou și Lihou. Sark a fost ultima jurisdicție feudală din Europa (reformă 2008).',temei:'Doctrina "Crown in right of the Bailiwick". Legislatura principală: States of Deliberation. Alderney și Sark au propriile parlamente.',ue:'Protocol 3 (1973-2020); post-Brexit: fără relație UE',schengen:'În afara Schengen — parte a Common Travel Area',moneda:'Liră Guernsey (GGP) — paritate 1:1 cu GBP',viza:{temei:'Immigration (Bailiwick of Guernsey) Law 2008',regim:'Parte a Common Travel Area, cu competențe proprii',particular:'Right of Abode separat și controale proprii pentru ședere peste 3 luni',observatie:'Guernsey, Alderney și Sark aplică același regim'},particularitati:'Sark — caz unic: ultima jurisdicție europeană care a abolit feudalismul sub presiunea CEDO (cauza Barclay v. UK).',badges:['Crown Dependency','CTA','Non-EU']},{id:'iom',nume:'Isle of Man',numeEn:'Ellan Vannin',categorie:'cd',categorieLabel:'Crown Dependency',lat:54.2361,lon:-4.5481,capitala:'Douglas',populatie:'≈ 85 000',suprafata:'572 km²',ocean:'Marea Irlandei',descriere:'Fost regat viking-celtic. Cumpărat de Coroană de la familia Atholl prin Revestment Act 1765 pentru 70 000 £.',temei:'Doctrina "Crown in right of the Isle of Man". Titlul monarhului: Lord of Mann. Legislatura: Tynwald — cel mai vechi parlament continuu din lume (din 979 d.Hr.).',ue:'Protocol 3 (1973-2020); post-Brexit: fără relație UE',schengen:'În afara Schengen — parte a Common Travel Area',moneda:'Liră Manx (IMP) — paritate 1:1 cu GBP',viza:{temei:'Immigration Act 1971 (Isle of Man) Order 2008',regim:'Aplică regulile UK prin Order in Council, cu competență locală pentru permise de muncă',particular:'Work Permit necesar pentru non-Manx și non-CTA',observatie:'Cel mai integrat dintre CD cu regimul britanic de imigrație'},particularitati:'Prima jurisdicție din lume care a acordat dreptul de vot femeilor căsătorite (Tynwald, 1881).',badges:['Crown Dependency','CTA','Tynwald 979']},{id:'gibraltar',nume:'Gibraltar',numeEn:'Gibraltar',categorie:'bot-europe',categorieLabel:'BOT · Europa',lat:36.1408,lon:-5.3536,capitala:'Gibraltar (city)',populatie:'≈ 33 700',suprafata:'6,8 km²',ocean:'Mediterană — Strâmtoarea Gibraltar',descriere:'Peninsulă strategică la intrarea în Mediterană. Cedat Marii Britanii prin Tratatul de la Utrecht (1713), art. X — "în perpetuitate, fără rezerve". Referendumurile 1967 și 2002: sprijin de peste 98% pentru rămânerea sub UK.',temei:'Gibraltar Constitution Order 2006. Guvern propriu, Parlament ales (17 membri). Guvernator numit de Coroană. FCDO răspunde de relații externe și apărare.',ue:'Singurul BOT care a fost parte a UE (art. 355(3) TFUE până la Brexit). A votat 96% pentru rămânere. Acord Gibraltar finalizat tehnic iunie 2025.',schengen:'În negociere — acordul Gibraltar 2025 prevede integrare de facto în Schengen, cu controale Frontex la aeroport și port',moneda:'Liră Gibraltar (GIP) — paritate 1:1 cu GBP',viza:{temei:'Immigration, Asylum and Refugee Act 2006 (Gibraltar)',regim:'Regim propriu de vize, distinct de UK',particular:'Cetățenii spanioli — regim special de frontalieri; după acordul 2025, controale Schengen exterioare',observatie:'Post-acord 2025: frontiera interioară (La Línea) va fi de facto eliminată'},particularitati:'Singurul BOT cu frontieră terestră activă cu un stat UE (Spania — La Línea de la Concepción).',badges:['BOT','UK Citizen','Acord Schengen 2025']},{id:'sba',nume:'Akrotiri și Dhekelia',numeEn:'Sovereign Base Areas (SBAs)',categorie:'bot-europe',categorieLabel:'BOT · Europa',lat:34.5903,lon:32.9879,capitala:'Episkopi Cantonment',populatie:'≈ 15 700',suprafata:'254 km² (Akrotiri 123 + Dhekelia 131)',ocean:'Mediterană Estică — Cipru',descriere:'Două enclave militare pe insula Cipru. Reținute de UK când Cipru a devenit independent în 1960. Administrate exclusiv pentru scopuri militare.',temei:'Treaty of Establishment 1960 (art. 1). Administrator numit de UK. Singurul BOT fără parlament local.',ue:'Statut special: în teritoriul UE (art. 355(5)(b) TFUE). Post-Brexit, Protocolul 3 la Acordul de Retragere menține dreptul UE pentru anumite materii.',schengen:'Nu — Cipru însuși nu este în Schengen',moneda:'Euro (EUR)',viza:{temei:'Sovereign Base Areas Order in Council',regim:'Regim distinct pentru personal militar și civili',particular:'Civilii aplică legislația cipriotă prin Applicable Law Ordinance 1960; personal militar sub jurisdicție britanică',observatie:'SBA include sate civile întregi, nu doar baze militare'},particularitati:'Punct major de intrare al migranților în UE via Mediterană Estică.',badges:['BOT','Militar','UE parțial']},{id:'bermuda',nume:'Bermuda',numeEn:'The Bermudas',categorie:'bot-atlantic',categorieLabel:'BOT · Atlantic',lat:32.3078,lon:-64.7505,capitala:'Hamilton',populatie:'≈ 64 000',suprafata:'54 km²',ocean:'Atlantic de Nord',descriere:'Arhipelag de 181 insule. Cel mai vechi BOT — colonizat din 1612. Referendum 1995 — respins independența (74% împotrivă).',temei:'Bermuda Constitution Order 1968. Parlament bicameral: Senate + House of Assembly (36 aleși). Autonomie internă foarte extinsă.',ue:'Niciodată PTOM UE — refuz explicit în 1973',schengen:'Non-Schengen',moneda:'Dolar Bermudian (BMD) — paritate 1:1 cu USD',viza:{temei:'Immigration and Protection Act 1956',regim:'Regim propriu de vize, distinct de UK',particular:'Cetățenii UK, SUA, Canada, UE — fără viză 180 zile',observatie:'Immigration Officer poate refuza intrarea chiar și cetățenilor britanici'},particularitati:'Singurul BOT unde cetățenia britanică NU garantează dreptul de ședere — "Bermudian Status" separat.',badges:['BOT','UK Citizen','Statut local distinct']},{id:'falklands',nume:'Insulele Falkland',numeEn:'Falkland Islands · Islas Malvinas',categorie:'bot-atlantic',categorieLabel:'BOT · Atlantic de Sud',lat:-51.7963,lon:-59.5236,capitala:'Stanley',populatie:'≈ 3 660',suprafata:'12 173 km²',ocean:'Atlantic de Sud',descriere:'Arhipelag revendicat de Argentina. Războiul din 1982 (2 apr. - 14 iun.), câștigat de UK. Referendum 2013 — 99,8% pentru rămânere ca BOT.',temei:'Falkland Islands Constitution Order 2008. Guvernator, Legislative Assembly (8 aleși + 2 ex officio).',ue:'PTOM UE 1973-2020',schengen:'Non-Schengen',moneda:'Liră Falkland (FKP) — paritate 1:1 cu GBP',viza:{temei:'Immigration Ordinance 1999',regim:'Regim propriu, mai restrictiv decât UK',particular:'Cetățenii argentinieni au regim special după 1999',observatie:'Zbor direct săptămânal via RAF Brize Norton sau Punta Arenas (Chile)'},particularitati:'Prezență militară britanică permanentă (RAF Mount Pleasant, ~1 200 efective). Descoperiri petroliere recente.',badges:['BOT','UK Citizen','Revendicat AR','Război 1982']},{id:'sgsi',nume:'Georgia de Sud și Sandwich de Sud',numeEn:'South Georgia and the South Sandwich Islands',categorie:'bot-atlantic',categorieLabel:'BOT · Atlantic de Sud',lat:-54.4296,lon:-36.5879,capitala:'King Edward Point',populatie:'≈ 30',suprafata:'3 903 km²',ocean:'Atlantic de Sud (subantarctic)',descriere:'Arhipelaguri subantarctice. BOT separat din 1985. South Georgia — scena primei acțiuni militare din Războiul Malvinas (3 aprilie 1982).',temei:'South Georgia and South Sandwich Islands Order 1985. Comisar numit (același cu Guvernatorul Falkland).',ue:'PTOM UE 1985-2020',schengen:'Non-Schengen',moneda:'Liră Falkland (FKP)',viza:{temei:'SGSSI Immigration Ordinance',regim:'Acces restricționat — doar vizite științifice și turism organizat',particular:'Visit Permit obligatoriu; taxă pentru croaziere',observatie:'Coordonare IAATO pentru vizite'},particularitati:'Locul odihnei finale a lui Ernest Shackleton (Grytviken).',badges:['BOT','Revendicat AR','Fără populație']},{id:'sthelena',nume:'Sfânta Elena, Ascension și Tristan',numeEn:'Saint Helena, Ascension and Tristan da Cunha',categorie:'bot-atlantic',categorieLabel:'BOT · Atlantic de Sud',lat:-15.965,lon:-5.7089,capitala:'Jamestown',populatie:'≈ 5 660',suprafata:'420 km²',ocean:'Atlantic de Sud',descriere:'Trei grupuri insulare. Saint Helena — locul exilului final al lui Napoleon (1815-1821). Tristan da Cunha — cea mai izolată așezare umană permanentă din lume.',temei:'Saint Helena, Ascension and Tristan da Cunha Constitution Order 2009. Guvernator unic. Consilii proprii pentru fiecare insulă.',ue:'PTOM UE 1973-2020',schengen:'Non-Schengen',moneda:'Liră Saint Helena (SHP)',viza:{temei:'Immigration Ordinance 2011',regim:'Cetățenii UK — acces fără viză',particular:'Aeroport Saint Helena din 2017; Ascension doar cu autorizație',observatie:'Tristan da Cunha — fără aeroport, navă de la Cape Town (~6 voiaje/an)'},particularitati:'Cel mai vechi BOT locuit (colonizat 1659). Ascension — bază Joint Intelligence Signals.',badges:['BOT','UK Citizen','Izolat extrem','Napoleon']},{id:'anguilla',nume:'Anguilla',numeEn:'Anguilla',categorie:'bot-caribbean',categorieLabel:'BOT · Caraibe',lat:18.2206,lon:-63.0686,capitala:'The Valley',populatie:'≈ 15 900',suprafata:'91 km²',ocean:'Marea Caraibilor — Insulele Leeward',descriere:'A ales separarea de federația Saint Kitts-Nevis-Anguilla în 1967 (Anguilla Revolution), preferând să rămână sub UK.',temei:'Anguilla Constitution Order 1982. Guvernator, House of Assembly (11 membri).',ue:'PTOM UE 1982-2020',schengen:'Non-Schengen',moneda:'Dolar Caraibe de Est (XCD)',viza:{temei:'Immigration and Passport Act (Anguilla)',regim:'Acces fără viză pentru CTA, UE, SUA, Canada',particular:'Work Permit pentru non-belongers',observatie:'Aeroportul Clayton J. Lloyd; acces maritim frecvent de la Saint-Martin francez'},particularitati:'Economie: turism de lux. Impozite directe zero — paradis fiscal.',badges:['BOT','UK Citizen','XCD']},{id:'bvi',nume:'Insulele Virgine Britanice',numeEn:'British Virgin Islands',categorie:'bot-caribbean',categorieLabel:'BOT · Caraibe',lat:18.4207,lon:-64.64,capitala:'Road Town (Tortola)',populatie:'≈ 31 500',suprafata:'151 km²',ocean:'Marea Caraibilor',descriere:'Arhipelag de ~60 insule (16 locuite). Scandal Fahie 2022 — UK a luat în considerare direct rule.',temei:'Virgin Islands Constitution Order 2007. Guvernator, House of Assembly (13 aleși).',ue:'PTOM UE 1973-2020',schengen:'Non-Schengen',moneda:'Dolar SUA (USD)',viza:{temei:'Immigration Act (Revised 2017)',regim:'Regim turistic permisiv',particular:'Cetățenii UK, SUA, Canada — fără viză 90 zile',observatie:'Conexiuni predominant via Puerto Rico sau Saint Thomas (USVI)'},particularitati:'Cel mai mare centru offshore pentru International Business Companies (~400 000 companii).',badges:['BOT','UK Citizen','USD','Offshore major']},{id:'cayman',nume:'Insulele Cayman',numeEn:'Cayman Islands',categorie:'bot-caribbean',categorieLabel:'BOT · Caraibe',lat:19.3133,lon:-81.2546,capitala:'George Town',populatie:'≈ 71 000',suprafata:'264 km²',ocean:'Marea Caraibilor (Nord-Vest)',descriere:'Trei insule: Grand Cayman, Little Cayman, Cayman Brac. Descoperite de Columb 1503. Cumpărate prin Tratatul de la Madrid (1670).',temei:'Cayman Islands Constitution Order 2009. Guvernator, Parlament (21 membri), Premier.',ue:'PTOM UE 1973-2020',schengen:'Non-Schengen',moneda:'Dolar Cayman (KYD) — 1 KYD = 1,20 USD',viza:{temei:'Immigration (Transition) Act 2021',regim:'Acces fără viză pentru UK, SUA, Canada, UE (30 zile)',particular:'Right to Work și Permanent Residency extrem de stricte',observatie:'Global Citizen Concierge Program (digital nomad visa) din 2020'},particularitati:'Cel mai mare centru bancar offshore din lume (>$2 trilioane). Zero impozit pe profit.',badges:['BOT','UK Citizen','KYD','Offshore hub']},{id:'montserrat',nume:'Montserrat',numeEn:'Montserrat',categorie:'bot-caribbean',categorieLabel:'BOT · Caraibe',lat:16.7425,lon:-62.1874,capitala:'Little Bay (de facto)',populatie:'≈ 4 400',suprafata:'102 km²',ocean:'Marea Caraibilor',descriere:'"Emerald Isle of the Caribbean" — moștenire irlandeză (coloniști catolici 1632). Erupțiile Soufrière Hills (1995-1997) au distrus capitala Plymouth.',temei:'Montserrat Constitution Order 2010. Guvernator, Legislative Assembly.',ue:'PTOM UE 1973-2020',schengen:'Non-Schengen',moneda:'Dolar Caraibe de Est (XCD)',viza:{temei:'Immigration Act',regim:'Cetățenii UK — fără viză',particular:'Zonă de excludere sudică strict interzisă',observatie:'O mare parte a insulei rămâne nelocuibilă din cauza vulcanului'},particularitati:'UK a oferit drept de ședere în metropolă cetățenilor montserratieni după erupție (Immigration and Asylum Act 1999).',badges:['BOT','UK Citizen','XCD','Vulcan activ']},{id:'tci',nume:'Turks și Caicos',numeEn:'Turks and Caicos Islands',categorie:'bot-caribbean',categorieLabel:'BOT · Caraibe',lat:21.694,lon:-71.7979,capitala:'Cockburn Town',populatie:'≈ 46 000',suprafata:'948 km²',ocean:'Atlantic/Caraibe (SE de Bahamas)',descriere:'Două grupe: Turks (Grand Turk, Salt Cay) și Caicos (6 insule). Singurul BOT unde UK a impus direct rule (2009-2012), după raportul privind corupția.',temei:'Turks and Caicos Islands Constitution Order 2011. Constitution Interim Amendment Order 2009 — precedent constituțional major.',ue:'PTOM UE 1973-2020',schengen:'Non-Schengen',moneda:'Dolar SUA (USD)',viza:{temei:'Immigration Ordinance',regim:'Regim turistic foarte permisiv (90 zile fără viză)',particular:'Work Permit strict pentru non-Belongers',observatie:'Conexiuni predominant SUA (Miami)'},particularitati:'Direct rule 2009-2012 — precedent constituțional major privind good governance power.',badges:['BOT','UK Citizen','USD','Direct Rule 2009']},{id:'pitcairn',nume:'Insulele Pitcairn',numeEn:'Pitcairn, Henderson, Ducie and Oeno Islands',categorie:'bot-pacific',categorieLabel:'BOT · Pacific',lat:-24.3575,lon:-128.3243,capitala:'Adamstown',populatie:'≈ 35-50',suprafata:'47 km²',ocean:'Pacificul de Sud',descriere:'Cel mai puțin populat BOT. Populația descinde din răzvrătiții Bounty (1789) și femeile tahitiene.',temei:'Pitcairn Constitution Order 2010. Guvernator (rezident Noua Zeelandă). Island Council.',ue:'PTOM UE 1973-2020',schengen:'Non-Schengen',moneda:'Dolar Noua Zeelandă (NZD)',viza:{temei:'Immigration Ordinance',regim:'Acces strict controlat',particular:'Landing Permit obligatoriu, emis în avans prin Council',observatie:'Acces doar pe mare de la Mangareva (Polinezia Franceză), 36 ore, 4 voiaje/an'},particularitati:'Procesul pentru abuz sexual (2004-2006) — chestiuni fundamentale privind aplicabilitatea dreptului britanic (Christian v. The Queen, Privy Council 2006).',badges:['BOT','UK Citizen','Mutineers Bounty']},{id:'biot',nume:'British Indian Ocean Territory',numeEn:'BIOT (Chagos) — statut în tranziție',categorie:'bot-indian',categorieLabel:'BOT · Ocean Indian',lat:-7.3195,lon:72.4222,capitala:'Diego Garcia',populatie:'≈ 3 000 (personal militar UK-SUA)',suprafata:'60 km² teren / 640 000 km² ZEE',ocean:'Oceanul Indian central',descriere:'Arhipelagul Chagos, cu insula Diego Garcia — bază militară comună UK-SUA. Populația autohtonă (Chagossians) a fost forțat evacuată între 1967 și 1973 — acțiune declarată nelegală de CIJ (aviz consultativ 2019).',temei:'BIOT Order 1965 (detașarea Chagos din Mauritius înainte de independența acestuia, 1968). Constituție 2004.',ue:'PTOM UE 1973-2020',schengen:'Non-Schengen',moneda:'Dolar SUA (USD)',viza:{temei:'Immigration Order 2004 (BIOT)',regim:'Acces strict interzis publicului',particular:'Doar personal militar, contractori autorizați, echipaje cu BIOT Visit Permit',observatie:'2026: grup de Chagossians a revenit și a inițiat acțiune pentru drept de reședință'},particularitati:'Cea mai mare arie protejată marină din lume la declarare (2010). Avizul CIJ 25 feb. 2019.',chagos:true,badges:['BOT','Bază militară','Chagos 2025']},{id:'bat',nume:'British Antarctic Territory',numeEn:'British Antarctic Territory (BAT)',categorie:'bot-antarctic',categorieLabel:'BOT · Antarctica',lat:-67.5676,lon:-68.1269,capitala:'Rothera (stație adm.)',populatie:'0 permanent',suprafata:'1 709 400 km²',ocean:'Continentul Antarctic',descriere:'Sector antarctic între meridianele 20° și 80° V. Revendicat de UK din 1908 — primul stat care a revendicat Antarctica. Sector suprapus cu Argentina și Chile.',temei:'BAT Order 1962. Revendicarea "înghețată" prin art. IV Tratatul Antarctic 1959.',ue:'PTOM UE nominal până în 2020',schengen:'Non-Schengen',moneda:'—',viza:{temei:'Antarctic Act 1994 (UK); Protocolul Madrid 1991',regim:'Niciun turism independent; expedițiile necesită permit',particular:'Vizitele sub responsabilitate UK — Antarctic Act Permit (FCDO)',observatie:'Regulamentul IAATO pentru turism organizat'},particularitati:'Stații britanice: Rothera, Halley, Bird Island. Descoperirea găurii din stratul de ozon (1985) la Halley de către British Antarctic Survey.',badges:['BOT','Antarctica','Tratat 1959']}];
+
+async function loadMap(){
+  const res=await fetch('https://cdn.jsdelivr.net/npm/world-atlas@2/countries-110m.json');
+  const topo=await res.json();
+  const countries=topojson.feature(topo,topo.objects.countries);
+  initMap(countries);
+}
+
+function initMap(countries){
+  const container=document.querySelector('.map-wrap');
+  const svg=d3.select('#worldmap');
+  const tooltip=document.getElementById('tooltip');
+
+  function render(){
+    const W=container.clientWidth,H=container.clientHeight;
+    svg.attr('viewBox',`0 0 ${W} ${H}`).attr('width',W).attr('height',H);
+    svg.selectAll('*').remove();
+
+    const proj=d3.geoEquirectangular().fitSize([W,H],{type:'Sphere'});
+    const path=d3.geoPath(proj);
+
+    svg.append('path').datum({type:'Sphere'}).attr('class','sphere').attr('d',path);
+    const grat=d3.geoGraticule().step([20,20]);
+    svg.append('path').datum(grat).attr('class','graticule').attr('d',path);
+
+    svg.append('g').selectAll('path').data(countries.features).enter().append('path')
+      .attr('class',d=>d.id==='826'?'country uk-metro':'country')
+      .attr('d',path)
+      .on('mouseenter',(e,d)=>{tooltip.textContent=d.properties.name||'';tooltip.style.opacity='1'})
+      .on('mousemove',e=>{
+        const r=container.getBoundingClientRect();
+        tooltip.style.left=(e.clientX-r.left+10)+'px';
+        tooltip.style.top=(e.clientY-r.top-22)+'px';
+      })
+      .on('mouseleave',()=>tooltip.style.opacity='0');
+
+    const mg=svg.append('g');
+    teritorii.forEach(t=>{
+      const p=proj([t.lon,t.lat]);
+      if(!p)return;
+      const[x,y]=p;
+
+      const g=mg.append('g').attr('class','marker').attr('data-id',t.id).attr('data-cat',t.categorie)
+        .attr('transform',`translate(${x},${y})`).on('click',()=>selectT(t.id));
+
+      g.append('circle').attr('class','halo').attr('r',6).attr('stroke',`var(--${t.categorie})`);
+      g.append('circle').attr('class','core').attr('r',5).attr('fill',`var(--${t.categorie})`);
+      g.append('text').attr('class','marker-label').attr('text-anchor','middle').attr('y',-10).text(t.nume);
+    });
+
+    document.getElementById('loading').classList.add('hidden');
+  }
+
+  render();
+  let rt;window.addEventListener('resize',()=>{clearTimeout(rt);rt=setTimeout(render,200)});
+}
+
+function selectT(id){
+  const t=teritorii.find(x=>x.id===id);if(!t)return;
+  document.querySelectorAll('.marker').forEach(m=>m.classList.remove('active'));
+  const am=document.querySelector(`.marker[data-id="${id}"]`);
+  if(am)am.classList.add('active');
+
+  const bm={'Crown Dependency':'cta','CTA':'cta','BOT':'uk-cit','UK Citizen':'uk-cit'};
+  const latStr=t.lat>=0?`${t.lat.toFixed(3)}° N`:`${Math.abs(t.lat).toFixed(3)}° S`;
+  const lonStr=t.lon>=0?`${t.lon.toFixed(3)}° E`:`${Math.abs(t.lon).toFixed(3)}° V`;
+
+  const chagosAlert=t.chagos?`
+    <div class="alert-box">
+      <strong>Status actualizat · Aprilie 2026</strong>
+      Tratatul UK-Mauritius semnat la 22 mai 2025 urma să transfere suveranitatea Arhipelagului Chagos. La 20 ianuarie 2026, administrația Trump a criticat public acordul; la 11 aprilie 2026, UK a abandonat tratatul. BIOT rămâne deocamdată BOT britanic.
+    </div>`:'';
+
+  document.getElementById('panel').innerHTML=`
+  <div class="panel-enter">
+    <div class="panel-header">
+      <div class="panel-cat" data-cat="${t.categorie}">● ${t.categorieLabel}</div>
+      <h2>${t.nume}<em>${t.numeEn}</em></h2>
+    </div>
+    <div class="panel-body">
+      <div class="coords-bar">
+        <span>LAT: <strong>${latStr}</strong></span>
+        <span>LON: <strong>${lonStr}</strong></span>
+      </div>
+      ${chagosAlert}
+      <div class="stat-grid">
+        <div class="stat"><div class="k">Capitala</div><div class="v" style="font-size:13px">${t.capitala}</div></div>
+        <div class="stat"><div class="k">Populația</div><div class="v">${t.populatie}</div></div>
+        <div class="stat"><div class="k">Suprafața</div><div class="v" style="font-size:13px">${t.suprafata}</div></div>
+        <div class="stat"><div class="k">Regiune</div><div class="v" style="font-size:12px">${t.ocean}</div></div>
+      </div>
+      <div class="panel-section"><h3>Descriere</h3><p>${t.descriere}</p></div>
+      <div class="panel-section"><h3>Temei juridic</h3><p>${t.temei}</p></div>
+      <div class="panel-section"><h3>Statut UE (post-Brexit)</h3><p>${t.ue}</p></div>
+      <div class="panel-section"><h3>Schengen</h3><p>${t.schengen}</p></div>
+      <div class="panel-section"><h3>Moneda</h3><p>${t.moneda}</p></div>
+      <div class="visa-box">
+        <h3>Regimul vizelor și intrării</h3>
+        <div class="visa-row"><div class="vk">Temei</div><div class="vv">${t.viza.temei}</div></div>
+        <div class="visa-row"><div class="vk">Regim</div><div class="vv"><strong>${t.viza.regim}</strong></div></div>
+        <div class="visa-row"><div class="vk">Particularități</div><div class="vv">${t.viza.particular}</div></div>
+        <div class="visa-row"><div class="vk">Observație</div><div class="vv">${t.viza.observatie}</div></div>
+      </div>
+      <div class="panel-section"><h3>Particularități</h3><p>${t.particularitati}</p></div>
+      <div class="badge-row">${t.badges.map(b=>`<span class="badge ${bm[b]||''}">${b}</span>`).join('')}</div>
+    </div>
+  </div>`;
+  document.getElementById('panel').scrollTop=0;
+}
+
+document.querySelectorAll('.chip').forEach(c=>{
+  c.addEventListener('click',()=>{
+    document.querySelectorAll('.chip').forEach(x=>x.classList.remove('active'));
+    c.classList.add('active');
+    const f=c.dataset.filter;
+    document.querySelectorAll('.marker').forEach(m=>{
+      m.classList.toggle('dimmed',f!=='all'&&m.dataset.cat!==f);
+    });
+  });
+});
+
+loadMap();
+</script>
+</body>
+</html>
