@@ -2000,7 +2000,7 @@ function startCinematicRotation() {
     if (!isRotating || currentMode !== '3d') return;
     const rotate = projection.rotate();
     // O rotație foarte lentă de 0.04 grade pe cadru
-    projection.rotate([rotate[0] + 0.04, rotate[1], rotate[2]]);
+    projection.rotate([rotate[0] - 0.04, rotate[1], rotate[2]]);
     rotationState = projection.rotate();
     updateProjection();
   });
