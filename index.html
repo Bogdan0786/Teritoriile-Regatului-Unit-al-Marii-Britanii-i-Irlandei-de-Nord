@@ -1847,8 +1847,10 @@ function renderMap() {
       });
       
     svg.call(zoomBehavior);
+    svg.on('.drag', null);
   } else {
     // În modul 3D dezactivăm zoomBehavior-ul clasic și configurăm Dragging-ul pe Sferă
+    svg.on('.zoom', null);
     svg.call(d3.drag()
       .on('start', () => {
         isRotating = false;
