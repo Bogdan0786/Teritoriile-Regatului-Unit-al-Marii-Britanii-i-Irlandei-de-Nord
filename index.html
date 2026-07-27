@@ -2016,8 +2016,14 @@ function updateChipOnResize(){
 var tweens = [];
 function easeCubic(k){ return k < 0.5 ? 4*k*k*k : 1 - Math.pow(-2*k + 2, 3) / 2; }
 function addTween(dur, update, done){
-  if (REDUCED || dur <= 0){ update(1); if (done) done(); return; }
-  tweens.push({ t0: performance.now(), dur: dur, update: update, done: done });
+  if (REDUCED || dur <= 0){ update(1); if (done) done(); return null; }
+  var tw = { t0: performance.now(), dur: dur, update: update, done: done };
+  tweens.push(tw);
+  return tw;
+}
+function cancelTween(tw){
+  var i = tweens.indexOf(tw);
+  if (i >= 0) tweens.splice(i, 1);
 }
 function stepTweens(now){
   for (var i = tweens.length - 1; i >= 0; i--){
@@ -2037,7 +2043,7 @@ function shortestAngle(from, to){
 /* ---------- Interacțiune: drag, inerție, hover, click ---------- */
 var dragging = false, dragMoved = 0, lastX = 0, lastY = 0;
 var velX = 0, velY = 0, lastInteract = 0;
-var defaultTilt = 0.22;
+var defaultTilt = 0;   // poziția „de acasă” = perfect dreaptă (rămâne doar înclinarea axială de 23,44° din tiltG)
 globe.rotation.x = defaultTilt;
 globe.rotation.y = 0.9;
 
@@ -2047,6 +2053,7 @@ canvas.addEventListener('pointerdown', function(e){
   canvas.classList.add('dragging');
   canvas.setPointerCapture(e.pointerId);
   lastInteract = performance.now();
+  cancelUpright();   // orice interacțiune nouă resetează cronometrul de auto-îndreptare
 });
 canvas.addEventListener('pointermove', function(e){
   lastInteract = performance.now();
@@ -2066,8 +2073,55 @@ canvas.addEventListener('pointerup', function(e){
   dragging = false;
   canvas.classList.remove('dragging');
   if (dragMoved < 6) clickCheck(e);
+  else scheduleUpright();   // drag real terminat → cronometrul de 4 s pornește
+});
+canvas.addEventListener('pointercancel', function(){
+  dragging = false;
+  canvas.classList.remove('dragging');
+  if (dragMoved >= 6) scheduleUpright();
 });
 canvas.addEventListener('pointerleave', function(){ hideTooltip(); });
+
+/* ---------- Auto-îndreptare a globului după 4 s de inactivitate ----------
+   Drag-ul liber (fără selecție) poate lăsa globul înclinat (rotation.x ≠ 0).
+   La 4 s după sfârșitul oricărei interacțiuni de drag (pointerup/pointercancel),
+   globul revine lin în poziția dreaptă: rotation.x → defaultTilt și
+   rotation.z → 0, easing cubic in-out (addTween aplică easeCubic), ~1,4 s.
+   rotation.y rămâne NEATINSĂ — eas-ul ei către cel mai apropiat multiplu de 2π
+   ar fi însemnat o rotire orizontală suplimentară de până la 180°, mult mai
+   puțin naturală decât spinul continuu, care reia imediat din poziția curentă,
+   fără salt vizibil; orientarea „de acasă” e oricum restituită la fiecare
+   parcurs complet al spinului. Nu rulează cât un teritoriu e selectat, panoul
+   e deschis, zborul cinematic e în desfășurare, fila e ascunsă sau utilizatorul
+   ține apăsat. La prefers-reduced-motion revenirea e instantanee (addTween
+   aplică direct starea finală), timerul de 4 s rămâne. Un singur timeout și
+   un singur tween activ la un moment dat — curățate la fiecare reprogramare. */
+var UPRIGHT_DELAY = 4000, UPRIGHT_DUR = 1400;
+var uprightTimer = null, uprightTween = null, lastUprightAt = 0;
+function cancelUpright(){
+  if (uprightTimer !== null){ clearTimeout(uprightTimer); uprightTimer = null; }
+  if (uprightTween){ cancelTween(uprightTween); uprightTween = null; }
+}
+function scheduleUpright(){
+  cancelUpright();
+  uprightTimer = setTimeout(function(){
+    uprightTimer = null;
+    maybeUpright();
+  }, UPRIGHT_DELAY);
+}
+function maybeUpright(){
+  if (dragging || flying || selected >= 0) return;          // apăsat / zbor cinematic / teritoriu selectat
+  if (panel.classList.contains('open')) return;             // panou deschis
+  if (document.hidden) return;                              // fila nu e vizibilă
+  if (Math.abs(globe.rotation.x - defaultTilt) < 0.01 && Math.abs(globe.rotation.z) < 0.01) return;   // deja drept (drag doar orizontal) → nu anima degeaba
+  velX = velY = 0;   // omoară inerția reziduală a drag-ului — altfel ar concura tween-ul și ar re-înclina globul după îndreptare
+  lastUprightAt = performance.now();
+  var startX = globe.rotation.x, startZ = globe.rotation.z;
+  uprightTween = addTween(UPRIGHT_DUR, function(k){
+    globe.rotation.x = startX + (defaultTilt - startX) * k;
+    globe.rotation.z = startZ * (1 - k);
+  }, function(){ uprightTween = null; });
+}
 
 var raycaster = new THREE.Raycaster();
 var ndc = new THREE.Vector2();
@@ -2124,6 +2178,8 @@ var isMobile = window.matchMedia('(max-width: 820px)').matches;
 
 function selectTeritoriu(i, fly){
   if (flying) return;
+  cancelUpright();   // orientarea e preluată de zborul cinematic — auto-îndreptarea se oprește
+  velX = velY = 0;   // omoară inerția reziduală — nu are voie să concureze tween-ul de zbor
   selected = i;
   var items = listEl.children;
   for (var k = 0; k < items.length; k++) items[k].classList.toggle('active', +items[k].dataset.i === i);
@@ -2263,6 +2319,8 @@ function showPanel(){
 }
 function deselect(){
   if (flying) return;
+  cancelUpright();   // tween-ul de revenire „la glob” controlează el însuși orientarea
+  velX = velY = 0;   // omoară inerția reziduală — altfel ar re-înclina globul după tween-ul „home”
   selected = -1;
   panel.classList.remove('open');
   backBtn.classList.remove('show');
@@ -2347,7 +2405,8 @@ function applyFilter(f){
 // handle de depanare (neintrusiv)
 window.__atlas = { globe: globe, tiltG: tiltG, spinG: spinG, camera: camera, markers: markers, teritorii: teritorii,
   spinAngle: function(){ return spinG.rotation.y; },
-  state: function(){ return { dragging: dragging, flying: flying, selected: selected, spinFactor: +spinFactor.toFixed(3) }; },
+  state: function(){ return { dragging: dragging, flying: flying, selected: selected, spinFactor: +spinFactor.toFixed(3),
+    uprightScheduled: uprightTimer !== null, uprightAnimating: uprightTween !== null, lastUprightAt: lastUprightAt }; },
   screenPos: function(i){
     var v = new THREE.Vector3();
     markers[i].grp.getWorldPosition(v);   // ține cont de tilt + spin + orice deplasare a globului
@@ -2408,13 +2467,14 @@ function animate(){
   // continuă, în jurul axei înclinate de 23,44°. Se estompează doar la drag activ,
   // în timpul zborului cinematic și cât un teritoriu e selectat; reia lin și rapid (<1 s),
   // de la poziția curentă, fără salturi. Dezactivată la prefers-reduced-motion.
+  // Înclinarea lăsată de drag-ul liber NU se corectează aici — o preia
+  // determinist auto-îndreptarea (4 s de inactivitate + easing cubic, vezi mai sus).
   var dt = Math.max(0, Math.min(0.25, t - prevT)); prevT = t;   // tolerant la fps scăzut → viteză constantă în timp real
   var spinTarget = (REDUCED || dragging || flying || selected >= 0) ? 0 : 1;
   if (flying || REDUCED || dragging) spinFactor = 0;  // pauză imediată → țintirea zborului rămâne exactă, drag-ul nu se luptă cu spinul
   else spinFactor += (spinTarget - spinFactor) * Math.min(1, dt * 2.4);
   if (spinFactor > 0.001){
     spinG.rotation.y += SPIN_SPEED * dt * spinFactor;
-    globe.rotation.x += (defaultTilt - globe.rotation.x) * Math.min(1, dt * 0.9);
   }
 
   // pulsare markere + estompare la filtre
